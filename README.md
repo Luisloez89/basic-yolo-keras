@@ -1,17 +1,15 @@
-
 # YOLOv2 in Keras and Applications
 
-This project aims to implement all the details of YOLOv2 in Keras with Tensorflow backend. It also explores to apply YOLOv2 to some interesting applications. 
+This repo contains the implementation of YOLOv2 in Keras with Tensorflow backend. It supports training YOLOv2 network with various backends such as MobileNet and InceptionV3. Links to demo applications are shown below. Check out https://experiencor.github.io/yolo_demo/demo.html for a Raccoon Detector demo run entirely in brower with DeepLearn.js and MobileNet backend (it somehow breaks in Window). Source code of this demo is located at https://git.io/vF7vG.
 
 ## Todo list:
 - [x] Warmup training
-- [x] Raccoon detection
-- [x] Self-driving car
-- [x] Kangaroo detection
-- [x] SqueezeNet backend
-- [x] MobileNet backend
-- [x] InceptionV3 backend
+- [x] Raccoon detection, Self-driving car, and Kangaroo detection
+- [x] SqueezeNet, MobileNet, InceptionV3, and ResNet50 backends
+- [x] Support python 2.7 and 3.6
+- [ ] Multiple-GPU training
 - [ ] Multiscale training
+- [ ] mAP Evaluation
 
 ## Some example applications (click for videos):
 
@@ -38,11 +36,20 @@ Dataset => https://github.com/cosmicad/dataset
 ### Hand detection
 <a href="https://www.youtube.com/watch?v=p3-3kN_fIz0" rel="some text"><p align="center"><img src="https://i.imgur.com/75imQQz.jpg" height="300"></p></a>
 
-Dataset => https://github.com/cosmicad/dataset
+Dataset => http://cvrr.ucsd.edu/vivachallenge/index.php/hands/hand-detection/
 
 ## Usage for python code
+
+### 0. Requirement
+
+python 2.7
+
+keras >= 2.0.8
+
+imgaug
+
 ### 1. Data preparation
-Download the Raccoon dataset from from https://github.com/datitran/raccoon_dataset.
+Download the Raccoon dataset from from https://github.com/experiencor/raccoon_dataset.
 
 Organize the dataset into 4 folders:
 
@@ -78,7 +85,7 @@ The configuration file is a json file, which looks like this:
         "batch_size":           16,             # the number of images to read in each batch
         "learning_rate":        1e-4,           # the base learning rate of the default Adam rate scheduler
         "nb_epoch":             50,             # number of epoches
-        "warmup_batches":       100,            # the number of initial batches during which the sizes of the 5 boxes in each cell is forced to match the sizes of the 5 anchors, this trick seems to improve precision emperically
+        "warmup_epochs":        3,              # the number of initial epochs during which the sizes of the 5 boxes in each cell is forced to match the sizes of the 5 anchors, this trick seems to improve precision emperically
 
         "object_scale":         5.0 ,           # determine how much to penalize wrong prediction of confidence of object predictors
         "no_object_scale":      1.0,            # determine how much to penalize wrong prediction of confidence of non-object predictors
@@ -98,28 +105,34 @@ The configuration file is a json file, which looks like this:
 
 ```
 
-The model section defines the type of the model to construct as well as other parameters of the model such as the input image size and the list of anchors. Two achitectures are supported at the moment: "Tiny Yolo" and "Full Yolo". 
+The model section defines the type of the model to construct as well as other parameters of the model such as the input image size and the list of anchors. The ```labels``` setting lists the labels to be trained on. Only images, which has labels being listed, are fed to the network. The rest images are simply ignored. By this way, a Dog Detector can easily be trained using VOC or COCO dataset by setting ```labels``` to ```['dog']```.
 
-Download pretrained features of tiny yolo, full yolo, squeezenet, mobilenet, and inceptionV3 at:
+Download pretrained weights for backend (tiny yolo, full yolo, squeezenet, mobilenet, and inceptionV3) at:
 
 https://1drv.ms/f/s!ApLdDEW3ut5fec2OzK4S4RpT-SU
 
-These weights must be put in the root folder of the repository. They are the pretrained weights for all the layers except the last layer and will be loaded during model creation. The last layer has different sizes for different numbers of classes and should be re-trained.
+**These weights must be put in the root folder of the repository. They are the pretrained weights for the backend only and will be loaded during model creation. The code does not work without these weights.**
 
-The link to the pretrained weights for the whole model of the raccoon detector can be downloaded at:
+The link to the pretrained weights for the whole model (both frontend and backend) of the raccoon detector can be downloaded at:
 
 https://1drv.ms/f/s!ApLdDEW3ut5feoZAEUwmSMYdPlY
 
 These weights can be used as the pretrained weights for any one class object detectors.
 
-### 3. Start the training process
+### 3. Generate anchors for your dataset (optional)
+
+`python gen_anchors.py -c config.json`
+
+Copy the generated anchors printed on the terminal to the ```anchors``` setting in ```config.json```.
+
+### 4. Start the training process
 
 `python train.py -c config.json`
 
 By the end of this process, the code will write the weights of the best model to file best_weights.h5 (or whatever name specified in the setting "saved_weights_name" in the config.json file). The training process stops when the loss on the validation set is not improved in 3 consecutive epoches.
 
-### 4. Perform detection using trained weights on an image by running
-`python predict.py -c config.json -w /path/to/best_weights.h5 -i /path/to/image`
+### 5. Perform detection using trained weights on an image by running
+`python predict.py -c config.json -w /path/to/best_weights.h5 -i /path/to/image/or/video`
 
 It carries out detection on the image and write the image with detected bounding boxes to the same folder.
 
@@ -132,3 +145,9 @@ Refer to the notebook (https://github.com/experiencor/basic-yolo-keras/blob/mast
 | Train        | Test          | mAP (with this implementation) | mAP (on released weights) |
 | -------------|:--------------|:------------------------:|:-------------------------:|
 | COCO train   | COCO val      | 28.6 |    42.1 |
+
+The code to evaluate detection results can be found at https://github.com/experiencor/basic-yolo-keras/issues/27.
+
+## Copyright
+
+See [LICENSE](LICENSE) for details.

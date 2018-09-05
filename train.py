@@ -1,46 +1,5 @@
 #! /usr/bin/env python
 
-"""
-This script takes in a configuration file and produces the best model. 
-The configuration file is a json file and looks like this:
-
-{
-    "model" : {
-        "architecture":         "Full Yolo",
-        "input_size":           416,
-        "anchors":              [0.57273, 0.677385, 1.87446, 2.06253, 3.33843, 5.47434, 7.88282, 3.52778, 9.77052, 9.16828],
-        "max_box_per_image":    10,        
-        "labels":               ["raccoon"]
-    },
-
-    "train": {
-        "train_image_folder":   "/home/andy/data/raccoon_dataset/images/",
-        "train_annot_folder":   "/home/andy/data/raccoon_dataset/anns/",      
-          
-        "train_times":          10,
-        "pretrained_weights":   "",
-        "batch_size":           16,
-        "learning_rate":        1e-4,
-        "nb_epoch":             50,
-        "warmup_batches":       100,
-
-        "object_scale":         5.0 ,
-        "no_object_scale":      1.0,
-        "coord_scale":          1.0,
-        "class_scale":          1.0,
-
-        "debug":                true
-    },
-
-    "valid": {
-        "valid_image_folder":   "",
-        "valid_annot_folder":   "",
-
-        "valid_times":          1
-    }
-}
-"""
-
 import argparse
 import os
 import numpy as np
@@ -60,11 +19,10 @@ argparser.add_argument(
     help='path to configuration file')
 
 def _main_(args):
-
     config_path = args.conf
 
     with open(config_path) as config_buffer:    
-        config = json.load(config_buffer)
+        config = json.loads(config_buffer.read())
 
     ###############################
     #   Parse the annotations 
@@ -87,16 +45,25 @@ def _main_(args):
         valid_imgs = train_imgs[train_valid_split:]
         train_imgs = train_imgs[:train_valid_split]
 
-    if len(set(config['model']['labels']).intersection(train_labels)) == 0:
-        print ("Labels to be detected are not present in the dataset! Please revise the list of labels in the config.json file!")
-        
-        return
+    if len(config['model']['labels']) > 0:
+        overlap_labels = set(config['model']['labels']).intersection(set(train_labels.keys()))
 
+        print('Seen labels:\t', train_labels)
+        print('Given labels:\t', config['model']['labels'])
+        print('Overlap labels:\t', overlap_labels)           
+
+        if len(overlap_labels) < len(config['model']['labels']):
+            print('Some labels have no annotations! Please revise the list of labels in the config.json file!')
+            return
+    else:
+        print('No labels are provided. Train on all seen labels.')
+        config['model']['labels'] = train_labels.keys()
+        
     ###############################
     #   Construct the model 
     ###############################
 
-    yolo = YOLO(architecture        = config['model']['architecture'],
+    yolo = YOLO(backend             = config['model']['backend'],
                 input_size          = config['model']['input_size'], 
                 labels              = config['model']['labels'], 
                 max_box_per_image   = config['model']['max_box_per_image'],
@@ -107,7 +74,7 @@ def _main_(args):
     ###############################    
 
     if os.path.exists(config['train']['pretrained_weights']):
-        print ("Loading pre-trained weights in", config['train']['pretrained_weights'])
+        print("Loading pre-trained weights in", config['train']['pretrained_weights'])
         yolo.load_weights(config['train']['pretrained_weights'])
 
     ###############################
@@ -118,10 +85,10 @@ def _main_(args):
                valid_imgs         = valid_imgs,
                train_times        = config['train']['train_times'],
                valid_times        = config['valid']['valid_times'],
-               nb_epoch           = config['train']['nb_epoch'], 
+               nb_epochs          = config['train']['nb_epochs'], 
                learning_rate      = config['train']['learning_rate'], 
                batch_size         = config['train']['batch_size'],
-               warmup_bs          = config['train']['warmup_batches'],
+               warmup_epochs      = config['train']['warmup_epochs'],
                object_scale       = config['train']['object_scale'],
                no_object_scale    = config['train']['no_object_scale'],
                coord_scale        = config['train']['coord_scale'],
